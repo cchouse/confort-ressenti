@@ -10,7 +10,7 @@ from .runtime import PieceRuntime
 
 async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities: AddConfigEntryEntitiesCallback) -> None:
     for sub_id, rt in entry.runtime_data.items():
-        async_add_entities([Apprentissage(rt)], config_subentry_id=sub_id)
+        async_add_entities([Apprentissage(rt), Pilotage(rt)], config_subentry_id=sub_id)
 
 
 class Apprentissage(PieceEntity, SwitchEntity):
@@ -28,3 +28,20 @@ class Apprentissage(PieceEntity, SwitchEntity):
 
     async def async_turn_off(self, **kwargs) -> None:
         self.rt.definir_apprentissage(False)
+
+
+class Pilotage(PieceEntity, SwitchEntity):
+    """Envoie réellement la consigne apprise aux têtes. Désactivé par défaut."""
+
+    def __init__(self, rt: PieceRuntime) -> None:
+        super().__init__(rt, "pilotage")
+
+    @property
+    def is_on(self) -> bool:
+        return self.rt.piece.pilotage_actif
+
+    async def async_turn_on(self, **kwargs) -> None:
+        self.rt.definir_pilotage(True)
+
+    async def async_turn_off(self, **kwargs) -> None:
+        self.rt.definir_pilotage(False)

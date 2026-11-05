@@ -1,7 +1,7 @@
 /* Carte « Confort ressenti » — chargée automatiquement par l'intégration.
  * Montre ce que l'intégration comprend et apprend : ressenti, murs estimés, tendance,
  * courbe 24 h, progression de l'apprentissage par plage, « Pourquoi ? » et derniers appuis. */
-const VERSION = "0.1.0";
+const VERSION = "0.2.0";
 
 const fmt = (x, n = 1) => (x === null || x === undefined || Number.isNaN(x)) ? "–" : Number(x).toFixed(n).replace(".", ",");
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -58,6 +58,16 @@ ul.ap { list-style:none; margin:0; padding:0; }
 ul.ap li { display:flex; justify-content:space-between; gap:8px; padding:6px 0; border-bottom:1px solid var(--divider-color); font-size:.88rem; color:var(--primary-text-color); }
 ul.ap li:last-child { border-bottom:0; }
 .vide { color:var(--secondary-text-color); font-size:.88rem; padding:4px 0; }
+.pilote { margin-top:16px; border:2px solid var(--divider-color); border-radius:12px; padding:12px; }
+.pilote.on { border-color:var(--primary-color); }
+.pilote .ligne { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.pilote h3 { margin:0; }
+.etat { font-size:.8rem; font-weight:600; padding:4px 10px; border-radius:999px; border:1px solid currentColor; white-space:nowrap; color:var(--secondary-text-color); }
+.pilote.on .etat { color:var(--primary-text-color); border-width:2px; }
+.cons { font-size:1.5rem; font-weight:600; color:var(--primary-text-color); margin:8px 0 2px; }
+button.bp { min-height:48px; padding:0 14px; border-radius:12px; border:2px solid var(--primary-color); background:transparent; color:var(--primary-text-color); font:inherit; font-weight:600; cursor:pointer; }
+button.bp[aria-pressed="true"] { background:var(--primary-color); color:var(--text-primary-color,#fff); }
+button.bp:focus-visible { outline:3px solid var(--primary-color); outline-offset:2px; }
 .lien { background:none; border:0; padding:0; min-height:44px; font:inherit; color:var(--primary-color); cursor:pointer; text-decoration:underline; }
 @media (forced-colors: active) {
   .zone, .repere, .barre > span { forced-color-adjust:none; background:Highlight; border-color:Highlight; }
@@ -120,6 +130,20 @@ class ConfortRessentiCard extends HTMLElement {
     <div class="lg"><span><i></i>Air (mesuré)</span><span><i class="t"></i>Murs (estimés)</span><span><i class="z"></i>Votre zone de confort</span></div>`;
   }
 
+  _pilotage(a, b) {
+    const pi = a.pilotage || {};
+    const on = !!pi.actif;
+    const d = pi.derniere;
+    const quand = d ? new Date(d.ts * 1000).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : null;
+    return `<div class="pilote ${on ? "on" : ""}">
+      <div class="ligne"><h3>Pilotage des têtes</h3><span class="etat">${on ? "● Actif" : "○ Désactivé"}</span></div>
+      <div class="cons">${fmt(pi.consigne)} °C <span class="petit">consigne d'air recommandée</span></div>
+      <div class="detail">${esc(pi.raison || "")}</div>
+      <div class="petit">${pi.nb_tetes ? `${pi.nb_tetes} tête${pi.nb_tetes > 1 ? "s" : ""}` : "Aucune tête choisie"} · limites ${fmt(pi.min)} à ${fmt(pi.max)} °C${quand ? ` · dernier envoi ${esc(quand)} (${fmt(d.cible)} °C)` : ""}</div>
+      <div style="margin-top:10px"><button class="bp" id="pilotage" aria-pressed="${on}" ${b.pilotage ? "" : "disabled"}>${on ? "Désactiver le pilotage" : "Activer le pilotage"}</button></div>
+    </div>`;
+  }
+
   _dessiner(st) {
     const r = this.shadowRoot;
     if (!st) { r.innerHTML = `<style>${STYLE}</style><ha-card><div class="alerte">Entité introuvable : ${esc(this._config.entity)}</div></ha-card>`; return; }
@@ -174,6 +198,7 @@ class ConfortRessentiCard extends HTMLElement {
         <button class="b" id="chaud" ${!b.trop_chaud || pause ? "disabled" : ""}>☀ Trop chaud</button>
       </div>
       ${a.peut_annuler ? `<button class="lien" id="annuler">Annuler mon dernier appui</button>` : ""}
+      ${this._pilotage(a, b)}
       <div class="sec"><h3>Les dernières 24 heures</h3>${this._courbe(a)}</div>
       <div class="sec"><h3>Ce que j'ai appris (${Math.round((a.confiance || 0) * 100)} % de fiabilité)</h3>${plages}
         <div class="petit">Plus vous appuyez dans une plage, plus elle devient fiable. Deux appuis — un « trop froid » et un « trop chaud » — encadrent précisément votre confort.</div></div>
@@ -184,6 +209,7 @@ class ConfortRessentiCard extends HTMLElement {
     r.getElementById("froid")?.addEventListener("click", () => this._presser(b.trop_froid));
     r.getElementById("chaud")?.addEventListener("click", () => this._presser(b.trop_chaud));
     r.getElementById("annuler")?.addEventListener("click", () => this._presser(b.annuler));
+    r.getElementById("pilotage")?.addEventListener("click", () => this._hass.callService("switch", (a.pilotage || {}).actif ? "turn_off" : "turn_on", { entity_id: b.pilotage }));
     r.getElementById("reprendre")?.addEventListener("click", () => this._hass.callService("switch", "turn_on", { entity_id: b.apprentissage }));
   }
 }

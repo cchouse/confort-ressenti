@@ -15,7 +15,9 @@ from homeassistant.config_entries import (
 from homeassistant.core import callback
 from homeassistant.helpers import selector
 
-from .const import CONF_EXTERIEUR, CONF_TEMPERATURE, CONF_TETES, DOMAIN, SUBENTRY_PIECE
+from .const import (
+    CONF_EXTERIEUR, CONF_MAX, CONF_MIN, CONF_TEMPERATURE, CONF_TETES, DOMAIN, MAX_DEFAUT, MIN_DEFAUT, SUBENTRY_PIECE,
+)
 
 
 class ConfortConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -55,6 +57,11 @@ def _schema(defaut: dict[str, Any] | None = None, avec_nom: bool = True) -> vol.
     champs[opt(CONF_EXTERIEUR, d.get(CONF_EXTERIEUR))] = selector.EntitySelector(
         selector.EntitySelectorConfig(domain="sensor", device_class="temperature")
     )
+    num = selector.NumberSelector(
+        selector.NumberSelectorConfig(min=5, max=30, step=0.5, unit_of_measurement="°C", mode=selector.NumberSelectorMode.BOX)
+    )
+    champs[opt(CONF_MIN, d.get(CONF_MIN, MIN_DEFAUT))] = num
+    champs[opt(CONF_MAX, d.get(CONF_MAX, MAX_DEFAUT))] = num
     return vol.Schema(champs)
 
 
@@ -63,6 +70,8 @@ def _donnees(entree: dict[str, Any]) -> dict[str, Any]:
         CONF_TEMPERATURE: entree[CONF_TEMPERATURE],
         CONF_TETES: entree.get(CONF_TETES) or [],
         CONF_EXTERIEUR: entree.get(CONF_EXTERIEUR) or None,
+        CONF_MIN: float(entree.get(CONF_MIN, MIN_DEFAUT)),
+        CONF_MAX: float(entree.get(CONF_MAX, MAX_DEFAUT)),
     }
 
 
@@ -75,12 +84,19 @@ class PieceSubentryFlow(ConfigSubentryFlow):
             noms = {s.title.casefold() for s in self._get_entry().subentries.values()}
             if user_input["name"].strip().casefold() in noms:
                 erreurs["name"] = "nom_existe"
+            elif float(user_input.get(CONF_MIN, MIN_DEFAUT)) >= float(user_input.get(CONF_MAX, MAX_DEFAUT)):
+                erreurs[CONF_MIN] = "min_max"
             else:
                 return self.async_create_entry(title=user_input["name"].strip(), data=_donnees(user_input))
         return self.async_show_form(step_id="user", data_schema=_schema(user_input), errors=erreurs)
 
     async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
         sub = self._get_reconfigure_subentry()
+        if user_input is not None and float(user_input.get(CONF_MIN, MIN_DEFAUT)) >= float(user_input.get(CONF_MAX, MAX_DEFAUT)):
+            defaut = {"name": sub.title, **user_input}
+            return self.async_show_form(
+                step_id="reconfigure", data_schema=_schema(defaut), errors={CONF_MIN: "min_max"}
+            )
         if user_input is not None:
             return self.async_update_and_abort(
                 self._get_entry(), sub, title=user_input["name"].strip(), data=_donnees(user_input)

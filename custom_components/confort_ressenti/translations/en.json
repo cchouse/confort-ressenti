@@ -25,7 +25,9 @@
       "name": "Room name",
       "capteur_temperature": "Room temperature sensor",
       "tetes": "Thermostatic heads / radiators (optional)",
-      "capteur_exterieur": "Outdoor temperature (optional)"
+      "capteur_exterieur": "Outdoor temperature (optional)",
+      "consigne_min": "Minimum setpoint sent to heads",
+      "consigne_max": "Maximum setpoint sent to heads"
      }
     },
     "reconfigure": {
@@ -35,12 +37,15 @@
       "name": "Room name",
       "capteur_temperature": "Room temperature sensor",
       "tetes": "Thermostatic heads / radiators (optional)",
-      "capteur_exterieur": "Outdoor temperature (optional)"
+      "capteur_exterieur": "Outdoor temperature (optional)",
+      "consigne_min": "Minimum setpoint sent to heads",
+      "consigne_max": "Maximum setpoint sent to heads"
      }
     }
    },
    "error": {
-    "nom_existe": "A room already has this name."
+    "nom_existe": "A room already has this name.",
+    "min_max": "Minimum must be below maximum."
    },
    "abort": {
     "reconfigure_successful": "Room updated. Learning kept."
@@ -70,6 +75,9 @@
    },
    "confiance": {
     "name": "Learning confidence"
+   },
+   "consigne": {
+    "name": "Recommended setpoint for heads"
    }
   },
   "button": {
@@ -86,6 +94,9 @@
   "switch": {
    "apprentissage": {
     "name": "Learning enabled"
+   },
+   "pilotage": {
+    "name": "Control the heads"
    }
   }
  }

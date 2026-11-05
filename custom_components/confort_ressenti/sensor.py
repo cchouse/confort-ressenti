@@ -24,6 +24,7 @@ async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities: AddC
                 MursSensor(rt),
                 TendanceSensor(rt),
                 ConfianceSensor(rt),
+                ConsigneSensor(rt),
             ],
             config_subentry_id=sub_id,
         )
@@ -36,7 +37,7 @@ class RessentiSensor(PieceEntity, SensorEntity):
     _attr_options = list(RESSENTI_LIBELLES)
     _unrecorded_attributes = frozenset(
         {"plages", "historique", "appuis", "explication", "boutons", "libelle", "temperature_ressentie",
-         "temperature_air", "murs_estimes", "confort", "tendance", "confiance", "plage", "ecart"}
+         "pilotage", "temperature_air", "murs_estimes", "confort", "tendance", "confiance", "plage", "ecart"}
     )
 
     def __init__(self, rt: PieceRuntime) -> None:
@@ -51,7 +52,8 @@ class RessentiSensor(PieceEntity, SensorEntity):
         return {
             cle: reg.async_get_entity_id("button", DOMAIN, f"{self.rt.sub_id}_{cle}")
             for cle in ("trop_froid", "trop_chaud", "annuler")
-        } | {"apprentissage": reg.async_get_entity_id("switch", DOMAIN, f"{self.rt.sub_id}_apprentissage")}
+        } | {"apprentissage": reg.async_get_entity_id("switch", DOMAIN, f"{self.rt.sub_id}_apprentissage"),
+            "pilotage": reg.async_get_entity_id("switch", DOMAIN, f"{self.rt.sub_id}_pilotage")}
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -78,6 +80,15 @@ class RessentiSensor(PieceEntity, SensorEntity):
             "historique": [[int(ts), round(a, 2), round(m, 2)] for ts, a, m in p.historique],
             "appuis": p.appuis[-8:][::-1],
             "peut_annuler": p.annulation is not None,
+            "pilotage": {
+                "actif": p.pilotage_actif,
+                "consigne": self.rt.consigne,
+                "raison": self.rt.raison,
+                "min": self.rt.cmin,
+                "max": self.rt.cmax,
+                "nb_tetes": len(self.rt.cfg.get("tetes") or []),
+                "derniere": p.derniere_commande,
+            },
             "boutons": self._boutons(),
         }
 
@@ -138,3 +149,20 @@ class ConfianceSensor(PieceEntity, SensorEntity):
     @property
     def native_value(self) -> int:
         return round(self.rt.piece.confiance_globale() * 100)
+
+
+class ConsigneSensor(_Temp):
+    """Consigne d'air recommandée (celle qui est envoyée aux têtes quand le pilotage est actif)."""
+
+    _attr_state_class = None
+
+    def __init__(self, rt: PieceRuntime) -> None:
+        super().__init__(rt, "consigne")
+
+    @property
+    def native_value(self) -> float | None:
+        return self.rt.consigne
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {"pilotage_actif": self.rt.piece.pilotage_actif, "raison": self.rt.raison}

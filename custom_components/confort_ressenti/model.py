@@ -31,6 +31,8 @@ CONFORT_PAR_DEFAUT = 20.0
 MARGE_UNE_BORNE = 0.7      # confort = borne ± marge quand une seule borne est connue
 MAX_PAS = 1.0              # variation maximale du confort par appui (°C)
 PEREMPTION_JOURS = 60      # une borne plus vieille que ça compte pour moins
+ECART_CONSIGNE_MAX = 1.5   # la consigne d'air ne s'écarte jamais de plus de 1,5 °C du confort appris
+PAS_CONSIGNE = 0.5
 TAU_MURS_H = 8.0           # constante de temps (heures) de l'estimation des murs
 POIDS_AIR = 0.6            # température ressentie = 0,6 air + 0,4 murs
 ECART_MURS_EXTERIEUR = 0.08  # les murs sont un peu plus froids que l'air quand il gèle dehors
@@ -96,6 +98,8 @@ class Piece:
     appuis: list[dict[str, Any]] = field(default_factory=list)
     annulation: dict[str, Any] | None = None
     apprentissage_actif: bool = True
+    pilotage_actif: bool = False      # envoi réel des consignes aux têtes (désactivé par défaut)
+    derniere_commande: dict[str, Any] | None = None
 
     # ---------- persistance ----------
     def to_dict(self) -> dict[str, Any]:
@@ -107,6 +111,8 @@ class Piece:
             "appuis": self.appuis,
             "annulation": self.annulation,
             "apprentissage_actif": self.apprentissage_actif,
+            "pilotage_actif": self.pilotage_actif,
+            "derniere_commande": self.derniere_commande,
         }
 
     @classmethod
@@ -123,6 +129,8 @@ class Piece:
         p.appuis = list(d.get("appuis", []))[-APPUIS_MAX:]
         p.annulation = d.get("annulation")
         p.apprentissage_actif = d.get("apprentissage_actif", True)
+        p.pilotage_actif = d.get("pilotage_actif", False)
+        p.derniere_commande = d.get("derniere_commande")
         return p
 
     # ---------- mesures ----------
@@ -245,6 +253,21 @@ class Piece:
         if p.confort is not None and (p.froid is not None or p.chaud is not None):
             return p.confort
         return self.confort(nom)
+
+    def fiable(self, nom: str) -> bool:
+        """Au moins un appui dans cette plage : sinon on ne commande pas les têtes."""
+        return self.confiance(nom) > 0
+
+    def consigne_air(self, nom: str, cmin: float, cmax: float) -> float:
+        """Température d'AIR à demander à la tête pour que le ressenti égale le confort appris."""
+        conf = self.confort_effectif(nom)
+        if self.murs is None:
+            cible = conf
+        else:
+            cible = (conf - (1 - POIDS_AIR) * self.murs) / POIDS_AIR
+        cible = max(conf - ECART_CONSIGNE_MAX, min(conf + ECART_CONSIGNE_MAX, cible))
+        cible = max(cmin, min(cmax, cible))
+        return round(cible / PAS_CONSIGNE) * PAS_CONSIGNE
 
     # ---------- lecture ----------
     def ressenti(self, nom: str) -> tuple[str, float] | tuple[None, None]:

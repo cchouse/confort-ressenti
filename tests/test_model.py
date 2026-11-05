@@ -103,3 +103,37 @@ def test_confiance_monte_avec_deux_bornes():
     p.echantillons, p.murs = piece_a(21.0).echantillons, 21.0
     p.appui("chaud", 2, m)
     assert p.confiance("matin") > c1
+
+
+def test_consigne_air_compense_les_murs():
+    from custom_components.confort_ressenti.model import POIDS_AIR
+    p = piece_a(20.0)
+    p.murs = 18.0                      # murs frais -> demander un air plus chaud
+    p.appui("froid", 1, datetime(2026, 1, 1, 8))
+    conf = p.confort_effectif("matin")
+    c = p.consigne_air("matin", 10, 30)
+    assert c > conf - 1e-9
+    p.murs = 24.0                      # murs chauds -> air plus bas
+    assert p.consigne_air("matin", 10, 30) < c
+
+
+def test_consigne_bornee_et_arrondie():
+    p = piece_a(20.0)
+    p.appui("froid", 1, datetime(2026, 1, 1, 8))
+    assert p.consigne_air("matin", 10, 30) * 2 == round(p.consigne_air("matin", 10, 30) * 2)
+    assert p.consigne_air("matin", 25, 26) == 25.0     # min de la pièce
+    assert p.consigne_air("matin", 10, 15) == 15.0     # max de la pièce
+    p.murs = -30.0                                     # cas extrême : écart limité à 1,5 °C du confort
+    assert p.consigne_air("matin", 0, 40) <= p.confort_effectif("matin") + 1.5 + 0.25
+
+
+def test_fiable_et_persistance_pilotage():
+    p = piece_a(20.0)
+    assert not p.fiable("matin")
+    p.appui("froid", 1, datetime(2026, 1, 1, 8))
+    assert p.fiable("matin") and not p.fiable("soir")
+    p.pilotage_actif = True
+    p.derniere_commande = {"ts": 1, "cible": 20.5, "tetes": ["climate.x"]}
+    q = Piece.from_dict(p.to_dict())
+    assert q.pilotage_actif and q.derniere_commande["cible"] == 20.5
+    assert Piece().pilotage_actif is False   # désactivé par défaut
