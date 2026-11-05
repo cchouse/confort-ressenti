@@ -1,0 +1,92 @@
+{
+ "config": {
+  "step": {
+   "user": {
+    "title": "Perceived comfort",
+    "description": "Learns, room by room, what feels right to you. Then use “Add room”."
+   }
+  },
+  "abort": {
+   "already_configured": "Already installed. Add a room from its page."
+  }
+ },
+ "config_subentries": {
+  "piece": {
+   "entry_type": "Room",
+   "initiate_flow": {
+    "user": "Add room",
+    "reconfigure": "Change sensors"
+   },
+   "step": {
+    "user": {
+     "title": "Add room",
+     "description": "Pick from the lists. You can change sensors later without losing what was learned.",
+     "data": {
+      "name": "Room name",
+      "capteur_temperature": "Room temperature sensor",
+      "tetes": "Thermostatic heads / radiators (optional)",
+      "capteur_exterieur": "Outdoor temperature (optional)"
+     }
+    },
+    "reconfigure": {
+     "title": "Edit room",
+     "description": "Changing a sensor keeps the learning.",
+     "data": {
+      "name": "Room name",
+      "capteur_temperature": "Room temperature sensor",
+      "tetes": "Thermostatic heads / radiators (optional)",
+      "capteur_exterieur": "Outdoor temperature (optional)"
+     }
+    }
+   },
+   "error": {
+    "nom_existe": "A room already has this name."
+   },
+   "abort": {
+    "reconfigure_successful": "Room updated. Learning kept."
+   }
+  }
+ },
+ "entity": {
+  "sensor": {
+   "ressenti": {
+    "name": "Feeling",
+    "state": {
+     "froid": "Cold",
+     "frais": "Slightly cool",
+     "bien": "Comfortable",
+     "doux": "Slightly warm",
+     "chaud": "Hot"
+    }
+   },
+   "confort": {
+    "name": "Learned comfort temperature"
+   },
+   "murs": {
+    "name": "Walls (estimate)"
+   },
+   "tendance": {
+    "name": "Trend"
+   },
+   "confiance": {
+    "name": "Learning confidence"
+   }
+  },
+  "button": {
+   "trop_froid": {
+    "name": "Too cold"
+   },
+   "trop_chaud": {
+    "name": "Too hot"
+   },
+   "annuler": {
+    "name": "Undo last press"
+   }
+  },
+  "switch": {
+   "apprentissage": {
+    "name": "Learning enabled"
+   }
+  }
+ }
+}

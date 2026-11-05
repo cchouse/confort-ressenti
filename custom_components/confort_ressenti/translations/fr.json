@@ -1,0 +1,42 @@
+{
+  "config": {
+    "step": {"user": {"title": "Confort ressenti", "description": "Cette intégration apprend, pièce par pièce, ce qui est « bien » pour vous. Après validation, utilisez « Ajouter une pièce » pour choisir vos capteurs dans des listes."}},
+    "abort": {"already_configured": "Confort ressenti est déjà installé. Ajoutez une pièce depuis sa page."}
+  },
+  "config_subentries": {
+    "piece": {
+      "entry_type": "Pièce",
+      "initiate_flow": {"user": "Ajouter une pièce", "reconfigure": "Modifier les capteurs"},
+      "step": {
+        "user": {
+          "title": "Ajouter une pièce",
+          "description": "Choisissez dans les listes. Vous pourrez changer de capteur plus tard sans perdre ce que la pièce a appris.",
+          "data": {"name": "Nom de la pièce", "capteur_temperature": "Capteur de température de la pièce", "tetes": "Têtes thermostatiques / radiateurs (facultatif)", "capteur_exterieur": "Température extérieure (facultatif)"},
+          "data_description": {"capteur_temperature": "Il sert à calculer ce que vous ressentez.", "tetes": "Utilisées plus tard pour piloter le chauffage. Aucune action pour l'instant.", "capteur_exterieur": "Affine l'estimation de la température des murs."}
+        },
+        "reconfigure": {
+          "title": "Modifier la pièce",
+          "description": "Changer un capteur ne remet pas l'apprentissage à zéro.",
+          "data": {"name": "Nom de la pièce", "capteur_temperature": "Capteur de température de la pièce", "tetes": "Têtes thermostatiques / radiateurs (facultatif)", "capteur_exterieur": "Température extérieure (facultatif)"}
+        }
+      },
+      "error": {"nom_existe": "Une pièce porte déjà ce nom."},
+      "abort": {"reconfigure_successful": "Pièce mise à jour. L'apprentissage est conservé."}
+    }
+  },
+  "entity": {
+    "sensor": {
+      "ressenti": {"name": "Ressenti", "state": {"froid": "Froid", "frais": "Un peu frais", "bien": "Bien", "doux": "Un peu chaud", "chaud": "Chaud"}},
+      "confort": {"name": "Température de confort apprise"},
+      "murs": {"name": "Murs (estimation)"},
+      "tendance": {"name": "Tendance"},
+      "confiance": {"name": "Confiance de l'apprentissage"}
+    },
+    "button": {
+      "trop_froid": {"name": "Trop froid"},
+      "trop_chaud": {"name": "Trop chaud"},
+      "annuler": {"name": "Annuler le dernier appui"}
+    },
+    "switch": {"apprentissage": {"name": "Apprentissage actif"}}
+  }
+}
