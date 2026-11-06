@@ -106,6 +106,27 @@
    "pilotage": {
     "name": "Piloter les têtes"
    }
+  },
+  "binary_sensor": {
+   "chauffage": {
+    "name": "Chauffage en service"
+   }
+  }
+ },
+ "options": {
+  "step": {
+   "init": {
+    "title": "Chauffage en service",
+    "description": "Choisissez la température d'eau du circuit : au-dessus du seuil haut le chauffage est considéré en service, en dessous du seuil bas hors service, entre les deux l'état précédent est gardé.",
+    "data": {
+     "capteur_eau": "Température de l'eau du circuit",
+     "seuil_marche": "Seuil « en service » (°C)",
+     "seuil_arret": "Seuil « hors service » (°C)"
+    }
+   }
+  },
+  "error": {
+   "seuils": "Le seuil hors service doit être inférieur au seuil en service."
   }
  }
 }

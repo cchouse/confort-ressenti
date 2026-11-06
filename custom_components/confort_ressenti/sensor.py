@@ -37,7 +37,7 @@ class RessentiSensor(PieceEntity, SensorEntity):
     _attr_options = list(RESSENTI_LIBELLES)
     _unrecorded_attributes = frozenset(
         {"plages", "historique", "appuis", "explication", "boutons", "libelle", "temperature_ressentie",
-         "pilotage", "temperature_air", "murs_estimes", "confort", "tendance", "confiance", "plage", "ecart"}
+         "pilotage", "chauffage", "temperature_air", "murs_estimes", "confort", "tendance", "confiance", "plage", "ecart"}
     )
 
     def __init__(self, rt: PieceRuntime) -> None:
@@ -75,7 +75,14 @@ class RessentiSensor(PieceEntity, SensorEntity):
             "tendance_seuil": SEUIL_TENDANCE,
             "confiance": p.confiance_globale(),
             "apprentissage_actif": p.apprentissage_actif,
-            "explication": p.explication(nom),
+            "explication": p.explication(nom, self.rt.chauffage, self.rt.eau),
+            "chauffage": {
+                "configure": bool(self.rt.options.get("capteur_eau")),
+                "en_service": self.rt.chauffage,
+                "eau": self.rt.eau,
+                "seuil_marche": self.rt.options.get("seuil_marche", 55.0),
+                "seuil_arret": self.rt.options.get("seuil_arret", 47.0),
+            },
             "plages": p.resume_apprentissage(nom),
             "historique": [[int(ts), round(a, 2), round(m, 2)] for ts, a, m in p.historique],
             "appuis": p.appuis[-8:][::-1],

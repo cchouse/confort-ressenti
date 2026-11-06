@@ -252,3 +252,61 @@ async def test_bouton_je_suis_bien_pilote_les_tetes(hass):
     assert st.attributes["appuis"][0]["sens"] == "bien" and st.attributes["confiance"] > 0
     assert appels and 19.0 <= appels[-1].data["temperature"] <= 22.0
     assert hass.states.get(eid(hass, entry, "sensor", "ressenti")).attributes["boutons"]["bien"]
+
+
+EAU = "sensor.eau_circuit"
+
+
+async def _regler_eau(hass, entry, **opts):
+    r = await hass.config_entries.options.async_init(entry.entry_id)
+    assert r["type"] is FlowResultType.FORM
+    r = await hass.config_entries.options.async_configure(r["flow_id"], opts)
+    assert r["type"] is FlowResultType.CREATE_ENTRY, r
+    await hass.async_block_till_done()
+
+
+async def test_options_serialisables_comme_l_interface(hass):
+    import voluptuous_serialize
+    from homeassistant.helpers import config_validation as cv
+    entry = await _installer(hass)
+    r = await hass.config_entries.options.async_init(entry.entry_id)
+    voluptuous_serialize.convert(r["data_schema"], custom_serializer=cv.custom_serializer)
+
+
+async def test_chauffage_hysteresis(hass):
+    hass.states.async_set(CAPTEUR, "19.0")
+    hass.states.async_set(EAU, "30")
+    entry = await _installer(hass)
+    await _ajouter_piece(hass, entry)
+    await _regler_eau(hass, entry, capteur_eau=EAU, seuil_marche=55, seuil_arret=47)
+    bs = eid(hass, entry, "binary_sensor", "chauffage")
+    assert hass.states.get(bs).state == "off"
+    for eau, attendu in (("51", "off"), ("56", "on"), ("51", "on"), ("46", "off"), ("51", "off")):
+        hass.states.async_set(EAU, eau)
+        await hass.async_block_till_done()
+        assert hass.states.get(bs).state == attendu, eau
+
+
+async def test_chauffage_indisponible_sans_capteur_eau(hass):
+    hass.states.async_set(CAPTEUR, "19.0")
+    entry = await _installer(hass)
+    await _ajouter_piece(hass, entry)
+    assert hass.states.get(eid(hass, entry, "binary_sensor", "chauffage")).state == "unavailable"
+
+
+async def test_chauffage_seuils_incoherents_refuses(hass):
+    entry = await _installer(hass)
+    r = await hass.config_entries.options.async_init(entry.entry_id)
+    r = await hass.config_entries.options.async_configure(r["flow_id"], {"seuil_marche": 40, "seuil_arret": 50})
+    assert r["type"] is FlowResultType.FORM and r["errors"]
+
+
+async def test_explication_mentionne_le_chauffage(hass):
+    hass.states.async_set(CAPTEUR, "19.0")
+    hass.states.async_set(EAU, "60")
+    entry = await _installer(hass)
+    await _ajouter_piece(hass, entry)
+    await _regler_eau(hass, entry, capteur_eau=EAU, seuil_marche=55, seuil_arret=47)
+    st = hass.states.get(eid(hass, entry, "sensor", "ressenti"))
+    assert st.attributes["chauffage"]["en_service"] is True
+    assert "en service" in st.attributes["explication"]

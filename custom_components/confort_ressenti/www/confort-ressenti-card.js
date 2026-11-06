@@ -1,7 +1,7 @@
 /* Carte « Confort ressenti » — chargée automatiquement par l'intégration.
  * Montre ce que l'intégration comprend et apprend : ressenti, murs estimés, tendance,
  * courbe 24 h, progression de l'apprentissage par plage, « Pourquoi ? » et derniers appuis. */
-const VERSION = "0.3.0";
+const VERSION = "0.4.0";
 
 const fmt = (x, n = 1) => (x === null || x === undefined || Number.isNaN(x)) ? "–" : Number(x).toFixed(n).replace(".", ",");
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -131,6 +131,13 @@ class ConfortRessentiCard extends HTMLElement {
     <div class="lg"><span><i></i>Air (mesuré)</span><span><i class="t"></i>Murs (estimés)</span><span><i class="z"></i>Votre zone de confort</span></div>`;
   }
 
+  _chauffage(a) {
+    const c = a.chauffage;
+    if (!c || !c.configure || c.en_service === null || c.en_service === undefined) return "";
+    const eau = c.eau !== null && c.eau !== undefined ? ` (eau à ${Math.round(c.eau)} °C)` : "";
+    return `<div class="tendance"><span class="fl" aria-hidden="true">${c.en_service ? "🔥" : "○"}</span><span>Chauffage : <b>${c.en_service ? "en service" : "hors service"}</b>${eau}</span></div>`;
+  }
+
   _pilotage(a, b) {
     const pi = a.pilotage || {};
     const on = !!pi.actif;
@@ -194,6 +201,7 @@ class ConfortRessentiCard extends HTMLElement {
       </div>
       <div class="legende" aria-hidden="true"><span>Froid</span><span>Zone de confort</span><span>Chaud</span></div>
       <div class="tendance"><span class="fl" aria-hidden="true">${fl}</span><span>${txt}</span></div>
+      ${this._chauffage(a)}
       <div class="boutons">
         <button class="b" id="froid" ${!b.trop_froid || pause ? "disabled" : ""}>❄ Trop froid</button>
         <button class="b bien" id="bien" ${!b.bien || pause ? "disabled" : ""}>✓ Je suis bien</button>

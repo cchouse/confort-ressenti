@@ -6,6 +6,7 @@ from typing import Any
 import voluptuous as vol
 
 from homeassistant.config_entries import (
+    OptionsFlow,
     ConfigEntry,
     ConfigFlow,
     ConfigFlowResult,
@@ -16,6 +17,7 @@ from homeassistant.core import callback
 from homeassistant.helpers import selector
 
 from .const import (
+    CONF_EAU, CONF_SEUIL_ARRET, CONF_SEUIL_MARCHE, SEUIL_ARRET_DEFAUT, SEUIL_MARCHE_DEFAUT,
     CONF_EXTERIEUR, CONF_MAX, CONF_MIN, CONF_TEMPERATURE, CONF_TETES, DOMAIN, MAX_DEFAUT, MIN_DEFAUT, SUBENTRY_PIECE,
 )
 
@@ -29,6 +31,11 @@ class ConfortConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             return self.async_create_entry(title="Confort ressenti", data={})
         return self.async_show_form(step_id="user")
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
+        return OptionsFlowHandler()
 
     @classmethod
     @callback
@@ -103,3 +110,27 @@ class PieceSubentryFlow(ConfigSubentryFlow):
             )
         defaut = {"name": sub.title, **sub.data}
         return self.async_show_form(step_id="reconfigure", data_schema=_schema(defaut))
+
+
+class OptionsFlowHandler(OptionsFlow):
+    """Réglages communs : eau du circuit et seuils « chauffage en service »."""
+
+    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        erreurs: dict[str, str] = {}
+        actuel = {CONF_SEUIL_MARCHE: SEUIL_MARCHE_DEFAUT, CONF_SEUIL_ARRET: SEUIL_ARRET_DEFAUT, **self.config_entry.options}
+        if user_input is not None:
+            if float(user_input[CONF_SEUIL_ARRET]) >= float(user_input[CONF_SEUIL_MARCHE]):
+                erreurs[CONF_SEUIL_ARRET] = "seuils"
+            else:
+                out = {k: v for k, v in user_input.items() if v not in (None, "")}
+                return self.async_create_entry(data=out)
+        d = user_input or actuel
+        num = selector.NumberSelector(selector.NumberSelectorConfig(
+            min=20, max=90, step=1, unit_of_measurement="°C", mode=selector.NumberSelectorMode.BOX))
+        schema = vol.Schema({
+            vol.Optional(CONF_EAU, description={"suggested_value": d.get(CONF_EAU)}): selector.EntitySelector(
+                selector.EntitySelectorConfig(domain="sensor", device_class="temperature")),
+            vol.Required(CONF_SEUIL_MARCHE, default=d.get(CONF_SEUIL_MARCHE, SEUIL_MARCHE_DEFAUT)): num,
+            vol.Required(CONF_SEUIL_ARRET, default=d.get(CONF_SEUIL_ARRET, SEUIL_ARRET_DEFAUT)): num,
+        })
+        return self.async_show_form(step_id="init", data_schema=schema, errors=erreurs)

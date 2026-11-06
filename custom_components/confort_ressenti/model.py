@@ -300,7 +300,7 @@ class Piece:
                 return cle, delta
         return "chaud", delta
 
-    def explication(self, nom: str) -> str:
+    def explication(self, nom: str, chauffage: bool | None = None, eau: float | None = None) -> str:
         r = self.ressentie()
         a = self.air()
         if r is None or a is None:
@@ -340,6 +340,16 @@ class Piece:
                 parts.append(f"La pièce se refroidit ({_virgule(t)} °C/h).")
             else:
                 parts.append("La température est stable.")
+            if chauffage is not None:
+                e = f" (eau à {_virgule(eau, 0)} °C)" if eau is not None else ""
+                if chauffage:
+                    parts.append(f"Le chauffage est en service{e}." + (
+                        " Pourtant la pièce se refroidit : les têtes sont peut-être fermées ou la pièce perd plus de chaleur qu'elle n'en reçoit."
+                        if t < -SEUIL_TENDANCE else ""))
+                else:
+                    parts.append(f"Le chauffage est hors service{e}" + (" : la pièce se refroidit, c'est normal." if t < -SEUIL_TENDANCE else "."))
+        elif chauffage is not None:
+            parts.append("Le chauffage est en service." if chauffage else "Le chauffage est hors service.")
         return " ".join(parts)
 
     def resume_apprentissage(self, nom_actuel: str) -> list[dict[str, Any]]:

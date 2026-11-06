@@ -13,6 +13,11 @@ from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
 from .const import (
+    CONF_EAU,
+    CONF_SEUIL_ARRET,
+    CONF_SEUIL_MARCHE,
+    SEUIL_ARRET_DEFAUT,
+    SEUIL_MARCHE_DEFAUT,
     CONF_EXTERIEUR,
     CONF_MAX,
     CONF_MIN,
@@ -45,8 +50,11 @@ def _lire(hass: HomeAssistant, entity_id: str | None) -> float | None:
 class PieceRuntime:
     """Pont entre Home Assistant et le modèle d'apprentissage d'une pièce."""
 
-    def __init__(self, hass: HomeAssistant, sub: ConfigSubentry) -> None:
+    def __init__(self, hass: HomeAssistant, sub: ConfigSubentry, options: dict | None = None) -> None:
         self.hass = hass
+        self.options = dict(options or {})
+        self.chauffage: bool | None = None
+        self.eau: float | None = None
         self.sub_id = sub.subentry_id
         self.nom = sub.title
         self.cfg = dict(sub.data)
@@ -68,6 +76,8 @@ class PieceRuntime:
         ids = [self.cfg[CONF_TEMPERATURE]]
         if self.cfg.get(CONF_EXTERIEUR):
             ids.append(self.cfg[CONF_EXTERIEUR])
+        if self.options.get(CONF_EAU):
+            ids.append(self.options[CONF_EAU])
         self._unsubs.append(async_track_state_change_event(self.hass, ids, self._changement))
         self._unsubs.append(
             async_track_time_interval(self.hass, self._periodique, timedelta(seconds=INTERVALLE_MAJ_S))
@@ -90,7 +100,28 @@ class PieceRuntime:
         self._mesurer()
 
     @callback
+    def _maj_chauffage(self) -> None:
+        """Chauffage en service si l'eau dépasse le seuil haut ; hors service sous le seuil bas ; entre les deux on garde l'état précédent (pas de clignotement)."""
+        eid = self.options.get(CONF_EAU)
+        if not eid:
+            self.eau, self.chauffage = None, None
+            return
+        self.eau = _lire(self.hass, eid)
+        if self.eau is None:
+            self.chauffage = None
+            return
+        haut = float(self.options.get(CONF_SEUIL_MARCHE, SEUIL_MARCHE_DEFAUT))
+        bas = float(self.options.get(CONF_SEUIL_ARRET, SEUIL_ARRET_DEFAUT))
+        if self.eau > haut:
+            self.chauffage = True
+        elif self.eau < bas:
+            self.chauffage = False
+        elif self.chauffage is None:
+            self.chauffage = self.eau >= (haut + bas) / 2
+
+    @callback
     def _mesurer(self) -> None:
+        self._maj_chauffage()
         air = _lire(self.hass, self.cfg[CONF_TEMPERATURE])
         self.capteur_ok = air is not None
         if air is not None:

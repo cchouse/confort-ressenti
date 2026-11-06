@@ -101,6 +101,27 @@
    "pilotage": {
     "name": "Control the heads"
    }
+  },
+  "binary_sensor": {
+   "chauffage": {
+    "name": "Heating running"
+   }
+  }
+ },
+ "options": {
+  "step": {
+   "init": {
+    "title": "Heating running",
+    "description": "Pick the circuit water temperature: above the high threshold heating counts as running, below the low one as stopped, in between the previous state is kept.",
+    "data": {
+     "capteur_eau": "Circuit water temperature",
+     "seuil_marche": "Running threshold (°C)",
+     "seuil_arret": "Stopped threshold (°C)"
+    }
+   }
+  },
+  "error": {
+   "seuils": "Stopped threshold must be below running threshold."
   }
  }
 }

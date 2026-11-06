@@ -12,7 +12,7 @@ from homeassistant.helpers.typing import ConfigType
 from .const import DOMAIN, URL_CARTE, VERSION
 from .runtime import PieceRuntime
 
-PLATFORMS = ["sensor", "button", "switch"]
+PLATFORMS = ["sensor", "button", "switch", "binary_sensor"]
 
 type ConfortConfigEntry = ConfigEntry[dict[str, PieceRuntime]]
 
@@ -28,7 +28,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 async def async_setup_entry(hass: HomeAssistant, entry: ConfortConfigEntry) -> bool:
     runtimes: dict[str, PieceRuntime] = {}
     for sub in entry.subentries.values():
-        rt = PieceRuntime(hass, sub)
+        rt = PieceRuntime(hass, sub, entry.options)
         await rt.async_demarrer()
         runtimes[sub.subentry_id] = rt
     entry.runtime_data = runtimes
