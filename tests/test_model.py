@@ -137,3 +137,55 @@ def test_fiable_et_persistance_pilotage():
     q = Piece.from_dict(p.to_dict())
     assert q.pilotage_actif and q.derniere_commande["cible"] == 20.5
     assert Piece().pilotage_actif is False   # désactivé par défaut
+
+
+def test_bien_seul_rend_la_plage_fiable_et_fixe_le_confort():
+    p = piece_a(21.0)
+    m = datetime(2026, 1, 1, 8)
+    assert not p.fiable("matin")
+    p.appui("bien", 1, m)
+    assert p.fiable("matin") and 0 < p.confiance("matin") < 0.5
+    assert abs(p.confort_effectif("matin") - 21.0) <= 1.0     # pas limité à 1 °C
+    c1 = p.confiance("matin")
+    for i in range(4):
+        p.appui("bien", 2 + i, m)
+    assert p.confiance("matin") > c1 and p.confiance("matin") <= 0.85
+    assert abs(p.confort_effectif("matin") - 21.0) < 0.3
+
+
+def test_bien_invalide_les_bornes_contredites():
+    p = piece_a(19.0)
+    m = datetime(2026, 1, 1, 8)
+    p.appui("froid", 1, m)                        # froid à 19
+    p.echantillons, p.murs = piece_a(21.0).echantillons, 21.0
+    p.appui("bien", 2, m)                         # bien à 21 : cohérent avec « froid à 19 »
+    assert p.plages["matin"].froid is not None
+    p.echantillons, p.murs = piece_a(18.0).echantillons, 18.0
+    p.appui("bien", 3, m)                         # bien à 18 : contredit « froid à 19 »
+    assert p.plages["matin"].froid is None
+
+
+def test_bien_et_bornes_donnent_la_meilleure_confiance():
+    p = piece_a(19.0)
+    m = datetime(2026, 1, 1, 8)
+    p.appui("froid", 1, m)
+    p.echantillons, p.murs = piece_a(22.0).echantillons, 22.0
+    p.appui("chaud", 2, m)
+    avant = p.confiance("matin")
+    p.echantillons, p.murs = piece_a(20.5).echantillons, 20.5
+    p.appui("bien", 3, m)
+    assert p.confiance("matin") >= avant and p.confort_effectif("matin") > 19.0
+
+
+def test_annuler_un_bien():
+    p = piece_a(21.0)
+    p.appui("bien", 1, datetime(2026, 1, 1, 8))
+    assert p.annuler()
+    assert p.plages["matin"].bien is None and p.plages["matin"].bien_n == 0 and not p.fiable("matin")
+
+
+def test_persistance_bien():
+    p = piece_a(21.0)
+    p.appui("bien", 1, datetime(2026, 1, 1, 8))
+    q = Piece.from_dict(p.to_dict())
+    assert q.plages["matin"].bien == p.plages["matin"].bien and q.plages["matin"].bien_n == 1

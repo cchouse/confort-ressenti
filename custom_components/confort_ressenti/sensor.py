@@ -51,7 +51,7 @@ class RessentiSensor(PieceEntity, SensorEntity):
         reg = er.async_get(self.hass)
         return {
             cle: reg.async_get_entity_id("button", DOMAIN, f"{self.rt.sub_id}_{cle}")
-            for cle in ("trop_froid", "trop_chaud", "annuler")
+            for cle in ("trop_froid", "bien", "trop_chaud", "annuler")
         } | {"apprentissage": reg.async_get_entity_id("switch", DOMAIN, f"{self.rt.sub_id}_apprentissage"),
             "pilotage": reg.async_get_entity_id("switch", DOMAIN, f"{self.rt.sub_id}_pilotage")}
 

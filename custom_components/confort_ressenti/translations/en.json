@@ -89,6 +89,9 @@
    },
    "annuler": {
     "name": "Undo last press"
+   },
+   "bien": {
+    "name": "I feel fine"
    }
   },
   "switch": {

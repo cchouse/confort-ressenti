@@ -15,4 +15,4 @@ INTERVALLE_MAJ_S = 300
 STOCKAGE_VERSION = 1
 
 URL_CARTE = "/confort_ressenti/confort-ressenti-card.js"
-VERSION = "0.2.0"
+VERSION = "0.3.0"

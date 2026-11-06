@@ -223,3 +223,32 @@ async def test_pilotage_persiste_apres_rechargement(hass):
     await hass.async_block_till_done()
     assert hass.states.get(eid(hass, entry, "switch", "pilotage")).state == "on"
     assert len(appels) == n                      # pas de renvoi inutile au redémarrage
+
+
+async def test_formulaires_serialisables_comme_l_interface(hass):
+    import voluptuous_serialize
+    from homeassistant.helpers import config_validation as cv
+    hass.states.async_set(CAPTEUR, "18.0")
+    entry = await _installer(hass)
+    r = await hass.config_entries.subentries.async_init((entry.entry_id, SUBENTRY_PIECE), context={"source": SOURCE_USER})
+    voluptuous_serialize.convert(r["data_schema"], custom_serializer=cv.custom_serializer)
+
+
+async def test_bouton_je_suis_bien_pilote_les_tetes(hass):
+    from pytest_homeassistant_custom_component.common import async_mock_service
+    appels = async_mock_service(hass, "climate", "set_temperature")
+    hass.states.async_set(CAPTEUR, "20.5")
+    hass.states.async_set(TETE, "heat", {"temperature": 17.0, "min_temp": 5, "max_temp": 30})
+    entry = await _installer(hass)
+    r = await hass.config_entries.subentries.async_init((entry.entry_id, SUBENTRY_PIECE), context={"source": SOURCE_USER})
+    r = await hass.config_entries.subentries.async_configure(
+        r["flow_id"], {"name": "Chambre parentale", CONF_TEMPERATURE: CAPTEUR, CONF_TETES: [TETE]})
+    await hass.async_block_till_done()
+    assert eid(hass, entry, "button", "bien")
+    await _pilotage(hass, entry, True)
+    assert appels == []                                   # aucun appui : on ne commande pas
+    await _presser(hass, entry, "bien")                   # « je suis bien » seul suffit
+    st = hass.states.get(eid(hass, entry, "sensor", "ressenti"))
+    assert st.attributes["appuis"][0]["sens"] == "bien" and st.attributes["confiance"] > 0
+    assert appels and 19.0 <= appels[-1].data["temperature"] <= 22.0
+    assert hass.states.get(eid(hass, entry, "sensor", "ressenti")).attributes["boutons"]["bien"]

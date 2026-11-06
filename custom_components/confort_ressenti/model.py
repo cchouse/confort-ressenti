@@ -75,6 +75,8 @@ class Plage:
     chaud_ts: float | None = None
     appuis: int = 0
     confort: float | None = None      # dernier confort retenu (sert à limiter le pas)
+    bien: float | None = None         # température ressentie moyenne des appuis « je suis bien »
+    bien_n: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return self.__dict__.copy()
@@ -183,9 +185,16 @@ class Piece:
 
     def confort(self, nom: str, maintenant_ts: float | None = None) -> float:
         p = self.plages[nom]
-        c, h = p.froid, p.chaud
+        c, h, b = p.froid, p.chaud, p.bien
         if c is not None and h is not None:
-            return (c + h) / 2
+            mid = (c + h) / 2
+            return mid if b is None else 0.5 * mid + 0.5 * b
+        if b is not None:
+            if c is not None:
+                return max(b, c + 0.2)
+            if h is not None:
+                return min(b, h - 0.2)
+            return b
         if c is not None:
             return c + MARGE_UNE_BORNE
         if h is not None:
@@ -195,15 +204,18 @@ class Piece:
 
     def confiance(self, nom: str) -> float:
         p = self.plages[nom]
+        bonus_bien = min(0.3, 0.1 * p.bien_n)
         if p.froid is None and p.chaud is None:
-            return 0.0
+            if p.bien is None:
+                return 0.0
+            return min(0.85, 0.25 + 0.1 * p.bien_n)      # « bien » seul : utile, mais ne borne pas l'intervalle
         if p.froid is None or p.chaud is None:
-            return 0.35
+            return min(1.0, 0.35 + bonus_bien)
         largeur = abs(p.chaud - p.froid)
-        return 0.6 + 0.4 * max(0.0, min(1.0, (3.0 - largeur) / 2.0))
+        return min(1.0, 0.6 + 0.4 * max(0.0, min(1.0, (3.0 - largeur) / 2.0)) + bonus_bien)
 
     def appui(self, sens: str, ts: float, maintenant: datetime) -> dict[str, Any]:
-        """sens = 'froid' | 'chaud'. Renvoie l'événement enregistré."""
+        """sens = 'froid' | 'chaud' | 'bien'. Renvoie l'événement enregistré."""
         ressentie = self.ressentie()
         if ressentie is None:
             raise ValueError("pas de mesure de température")
@@ -211,7 +223,15 @@ class Piece:
         p = self.plages[nom]
         avant = {"plage": nom, "etat": p.to_dict()}
         ancien = self.confort(nom)
-        if sens == "froid":
+        if sens == "bien":
+            # « je suis bien » : preuve directe de confort. Elle rend caduques les bornes qu'elle contredit.
+            p.bien = ressentie if p.bien is None else 0.6 * p.bien + 0.4 * ressentie
+            p.bien_n += 1
+            if p.froid is not None and p.froid >= ressentie:
+                p.froid, p.froid_ts = None, None
+            if p.chaud is not None and p.chaud <= ressentie:
+                p.chaud, p.chaud_ts = None, None
+        elif sens == "froid":
             p.froid, p.froid_ts = ressentie, ts
             if p.chaud is not None and p.chaud <= p.froid:
                 p.chaud, p.chaud_ts = None, None
@@ -250,7 +270,7 @@ class Piece:
     def confort_effectif(self, nom: str) -> float:
         """Confort courant (respecte le pas limité une fois initialisé)."""
         p = self.plages[nom]
-        if p.confort is not None and (p.froid is not None or p.chaud is not None):
+        if p.confort is not None and (p.froid is not None or p.chaud is not None or p.bien is not None):
             return p.confort
         return self.confort(nom)
 
@@ -335,6 +355,8 @@ class Piece:
                     "appuis": p.appuis,
                     "froid": None if p.froid is None else round(p.froid, 1),
                     "chaud": None if p.chaud is None else round(p.chaud, 1),
+                    "bien": None if p.bien is None else round(p.bien, 1),
+                    "bien_n": p.bien_n,
                     "actuelle": nom == nom_actuel,
                 }
             )

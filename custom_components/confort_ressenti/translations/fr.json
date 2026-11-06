@@ -94,6 +94,9 @@
    },
    "annuler": {
     "name": "Annuler le dernier appui"
+   },
+   "bien": {
+    "name": "Je suis bien"
    }
   },
   "switch": {

@@ -1,7 +1,7 @@
 /* Carte « Confort ressenti » — chargée automatiquement par l'intégration.
  * Montre ce que l'intégration comprend et apprend : ressenti, murs estimés, tendance,
  * courbe 24 h, progression de l'apprentissage par plage, « Pourquoi ? » et derniers appuis. */
-const VERSION = "0.2.0";
+const VERSION = "0.3.0";
 
 const fmt = (x, n = 1) => (x === null || x === undefined || Number.isNaN(x)) ? "–" : Number(x).toFixed(n).replace(".", ",");
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -30,7 +30,8 @@ ha-card { padding:16px; font-family: var(--ha-card-font-family, inherit); }
 .legende { display:flex; justify-content:space-between; font-size:.75rem; color:var(--secondary-text-color); margin:0 4px 10px; }
 .tendance { display:flex; align-items:center; gap:8px; margin:6px 0 12px; font-size:.95rem; color:var(--primary-text-color); }
 .tendance .fl { font-size:1.4rem; width:28px; text-align:center; }
-.boutons { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:8px 0 6px; }
+.boutons { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin:8px 0 6px; }
+button.b.bien { background:color-mix(in srgb, var(--primary-color) 14%, transparent); }
 button.b { min-height:52px; border-radius:12px; border:2px solid var(--primary-color); background:transparent; color:var(--primary-text-color); font:inherit; font-size:1rem; font-weight:600; cursor:pointer; }
 button.b:hover { background:color-mix(in srgb, var(--primary-color) 12%, transparent); }
 button.b:focus-visible { outline:3px solid var(--primary-color); outline-offset:2px; }
@@ -168,7 +169,7 @@ class ConfortRessentiCard extends HTMLElement {
       const pct = Math.round((p.confiance || 0) * 100);
       const sous = p.appuis === 0
         ? "Pas encore appris — j'utilise la moyenne des autres plages."
-        : `${p.appuis} appui${p.appuis > 1 ? "s" : ""}` + (p.froid != null ? ` · « trop froid » à ${fmt(p.froid)}` : "") + (p.chaud != null ? ` · « trop chaud » à ${fmt(p.chaud)}` : "");
+        : `${p.appuis} appui${p.appuis > 1 ? "s" : ""}` + (p.bien != null ? ` · « bien » vers ${fmt(p.bien)}` : "") + (p.froid != null ? ` · « trop froid » à ${fmt(p.froid)}` : "") + (p.chaud != null ? ` · « trop chaud » à ${fmt(p.chaud)}` : "");
       return `<div class="plage ${p.actuelle ? "act" : ""}" ${p.actuelle ? 'aria-current="true"' : ""}>
         <span>${esc(PLAGE_COURT[p.plage] || p.plage)}${p.actuelle ? " ●" : ""}</span>
         <span class="barre" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="Fiabilité ${pct} %"><span style="width:${pct}%"></span></span>
@@ -177,7 +178,7 @@ class ConfortRessentiCard extends HTMLElement {
     const appuis = (a.appuis || []).map((p) => {
       const d = new Date(p.ts * 1000);
       const quand = d.toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
-      return `<li><span>${esc(quand)} · ${p.sens === "froid" ? "❄ Trop froid" : "☀ Trop chaud"} à ${fmt(p.ressentie)} °C</span><span>confort ${fmt(p.confort_avant)} → <b>${fmt(p.confort_apres)}</b></span></li>`;
+      return `<li><span>${esc(quand)} · ${p.sens === "froid" ? "❄ Trop froid" : p.sens === "bien" ? "✓ Bien" : "☀ Trop chaud"} à ${fmt(p.ressentie)} °C</span><span>confort ${fmt(p.confort_avant)} → <b>${fmt(p.confort_apres)}</b></span></li>`;
     }).join("");
 
     r.innerHTML = `<style>${STYLE}</style>
@@ -195,18 +196,20 @@ class ConfortRessentiCard extends HTMLElement {
       <div class="tendance"><span class="fl" aria-hidden="true">${fl}</span><span>${txt}</span></div>
       <div class="boutons">
         <button class="b" id="froid" ${!b.trop_froid || pause ? "disabled" : ""}>❄ Trop froid</button>
+        <button class="b bien" id="bien" ${!b.bien || pause ? "disabled" : ""}>✓ Je suis bien</button>
         <button class="b" id="chaud" ${!b.trop_chaud || pause ? "disabled" : ""}>☀ Trop chaud</button>
       </div>
       ${a.peut_annuler ? `<button class="lien" id="annuler">Annuler mon dernier appui</button>` : ""}
       ${this._pilotage(a, b)}
       <div class="sec"><h3>Les dernières 24 heures</h3>${this._courbe(a)}</div>
       <div class="sec"><h3>Ce que j'ai appris (${Math.round((a.confiance || 0) * 100)} % de fiabilité)</h3>${plages}
-        <div class="petit">Plus vous appuyez dans une plage, plus elle devient fiable. Deux appuis — un « trop froid » et un « trop chaud » — encadrent précisément votre confort.</div></div>
+        <div class="petit">Plus vous appuyez dans une plage, plus elle devient fiable. Appuyez sur « Je suis bien » quand c'est parfait : c'est la confirmation la plus utile. « Trop froid » et « trop chaud » encadrent ensuite précisément votre confort.</div></div>
       <details ${this._config.pourquoi_ouvert ? "open" : ""}><summary>Pourquoi ce ressenti ?</summary><p>${esc(a.explication)}</p>
         <p class="petit">Les murs sont une estimation calculée à partir de l'air (ils réagissent lentement), pas une mesure.</p></details>
       <div class="sec"><h3>Derniers appuis</h3>${appuis ? `<ul class="ap">${appuis}</ul>` : `<div class="vide">Aucun appui pour l'instant.</div>`}</div>
     </ha-card>`;
     r.getElementById("froid")?.addEventListener("click", () => this._presser(b.trop_froid));
+    r.getElementById("bien")?.addEventListener("click", () => this._presser(b.bien));
     r.getElementById("chaud")?.addEventListener("click", () => this._presser(b.trop_chaud));
     r.getElementById("annuler")?.addEventListener("click", () => this._presser(b.annuler));
     r.getElementById("pilotage")?.addEventListener("click", () => this._hass.callService("switch", (a.pilotage || {}).actif ? "turn_off" : "turn_on", { entity_id: b.pilotage }));

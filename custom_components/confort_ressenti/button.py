@@ -11,7 +11,7 @@ from .runtime import PieceRuntime
 async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities: AddConfigEntryEntitiesCallback) -> None:
     for sub_id, rt in entry.runtime_data.items():
         async_add_entities(
-            [Bouton(rt, "trop_froid", "froid"), Bouton(rt, "trop_chaud", "chaud"), Annuler(rt)],
+            [Bouton(rt, "trop_froid", "froid"), Bouton(rt, "bien", "bien"), Bouton(rt, "trop_chaud", "chaud"), Annuler(rt)],
             config_subentry_id=sub_id,
         )
 
